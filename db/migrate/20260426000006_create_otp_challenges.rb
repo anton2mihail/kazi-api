@@ -13,7 +13,7 @@ class CreateOtpChallenges < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :otp_challenges, [:phone, :purpose, :expires_at]
+    add_index :otp_challenges, [ :phone, :purpose, :expires_at ]
     add_index :otp_challenges, :consumed_at
   end
 end

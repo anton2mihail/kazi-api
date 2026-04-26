@@ -13,10 +13,14 @@ module Api
       def create
         return unless require_role!(:worker)
 
-        job = Job.active.find(params[:job_id])
+        job = Job.current.find(params[:job_id])
+        if job.job_applications.exists?(worker_id: current_user.id)
+          return render_error("duplicate_application", "You have already applied to this job.", status: :conflict)
+        end
+
         application = job.job_applications.build(
           worker: current_user,
-          cover_note: params[:coverNote],
+          cover_note: params[:coverNote] || params[:cover_note],
           status: "pending"
         )
 
@@ -39,7 +43,7 @@ module Api
           return render_error("forbidden", "You can only manage applications for your jobs.", status: :forbidden) unless application.job.employer_id == current_user.id
 
           status = params[:status].to_s
-          return render_error("unsupported_status", "Unsupported application status.", status: :unprocessable_entity) unless JobApplication.statuses.key?(status)
+          return render_error("unsupported_status", "Unsupported application status.", status: :unprocessable_entity) unless employer_statuses.include?(status)
 
           application.status = status
         else
@@ -73,6 +77,10 @@ module Api
       def employer_index
         applications = JobApplication.joins(:job).where(jobs: { employer_id: current_user.id }).includes(:job, worker: :worker_profile)
         render_success(applications.map { |application| JobApplicationSerializer.render(application, include_worker: true) })
+      end
+
+      def employer_statuses
+        %w[reviewing shortlisted interview_requested hired rejected]
       end
     end
   end

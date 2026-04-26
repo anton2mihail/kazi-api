@@ -30,8 +30,8 @@ module Api
             expires_at: OtpChallenge::TTL.from_now
           )
 
-          # TODO: send the code through Twilio. Until SMS is wired, expose it in non-production
-          # so local web/mobile development can complete the OTP flow.
+          OtpDelivery::Sms.deliver!(phone: phone, code: code)
+
           payload = {
             challenge_id: challenge.id,
             expires_at: challenge.expires_at
@@ -39,6 +39,9 @@ module Api
           payload[:development_code] = code unless Rails.env.production?
 
           render_success(payload, status: :created)
+        rescue OtpDelivery::Sms::DeliveryError => error
+          Rails.logger.warn("OTP delivery failed: #{error.message}")
+          render_error("otp_delivery_failed", "Could not send verification code. Please try again.", status: :bad_gateway)
         end
 
         def verify

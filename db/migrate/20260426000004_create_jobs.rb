@@ -24,7 +24,7 @@ class CreateJobs < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :jobs, [:status, :published_at]
+    add_index :jobs, [ :status, :published_at ]
     add_index :jobs, :trade
     add_index :jobs, :location
     add_index :jobs, :expires_at
