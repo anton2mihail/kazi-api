@@ -7,6 +7,18 @@ class Rack::Attack
     request.ip if request.path.start_with?("/api/v1/auth/")
   end
 
+  throttle("otp/start/phone", limit: 5, period: 10.minutes) do |request|
+    next unless request.post? && request.path == "/api/v1/auth/otp/start"
+
+    request.params["phone"].to_s.gsub(/\D/, "").delete_prefix("1").presence
+  end
+
+  throttle("otp/verify/phone", limit: 10, period: 10.minutes) do |request|
+    next unless request.post? && request.path == "/api/v1/auth/otp/verify"
+
+    request.ip
+  end
+
   self.throttled_responder = lambda do |request|
     [
       429,

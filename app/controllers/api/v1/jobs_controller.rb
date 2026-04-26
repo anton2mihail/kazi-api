@@ -2,18 +2,21 @@ module Api
   module V1
     class JobsController < ApplicationController
       before_action :authenticate_user!, except: []
-      before_action :set_job, only: [:show, :update]
+      before_action :set_job, only: [ :show, :update, :repost, :archive ]
 
       def index
-        jobs = Job.includes(employer: :employer_profile)
-        jobs = current_user.employer? ? jobs.where("jobs.status = ? OR jobs.employer_id = ?", "active", current_user.id) : jobs.where(status: "active")
+        jobs = Job.visible.includes(employer: :employer_profile)
+        jobs = current_user.employer? ? jobs.where("jobs.status = ? OR jobs.employer_id = ?", "active", current_user.id) : jobs.current
         jobs = jobs.order(published_at: :desc)
         jobs = jobs.where(trade: params[:trade]) if params[:trade].present? && params[:trade] != "All Trades"
         jobs = jobs.where(location: params[:location]) if params[:location].present? && params[:location] != "All Locations"
-        jobs = jobs.where("title ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:q])}%") if params[:q].present?
-
-        if current_user.employer?
-          jobs = jobs.or(Job.where(employer_id: current_user.id))
+        jobs = jobs.where("pay_max_cents IS NULL OR pay_max_cents >= ?", pay_range_min_cents) if pay_range_min_cents
+        if params[:q].present?
+          query = "%#{ActiveRecord::Base.sanitize_sql_like(params[:q])}%"
+          jobs = jobs.left_joins(employer: :employer_profile).where(
+            "jobs.title ILIKE :query OR jobs.trade ILIKE :query OR employer_profiles.company_name ILIKE :query",
+            query: query
+          )
         end
 
         applicant_counts = JobApplication.where(job_id: jobs.map(&:id)).group(:job_id).count
@@ -50,15 +53,31 @@ module Api
         end
       end
 
+      def repost
+        return unless require_role!(:employer)
+        return render_error("forbidden", "You can only repost your own jobs.", status: :forbidden) unless @job.employer_id == current_user.id
+
+        @job.repost!
+        render_success(JobSerializer.render(@job))
+      end
+
+      def archive
+        return unless require_role!(:employer)
+        return render_error("forbidden", "You can only archive your own jobs.", status: :forbidden) unless @job.employer_id == current_user.id
+
+        @job.archive!
+        render_success(JobSerializer.render(@job))
+      end
+
       private
 
       def set_job
-        @job = Job.includes(employer: :employer_profile).find(params[:id])
+        @job = Job.visible.includes(employer: :employer_profile).find(params[:id])
       end
 
       def job_attributes
         trade = params[:trade].presence || Array(params[:trades]).first
-        {
+        attributes = {
           title: params[:title],
           trade: trade,
           location: params[:location],
@@ -74,6 +93,8 @@ module Api
           preferred_skills: array_param(:preferredSkills),
           benefits: array_param(:benefits)
         }
+        attributes[:urgent] = ActiveModel::Type::Boolean.new.cast(params[:urgent]) if params.key?(:urgent)
+        attributes
       end
 
       def array_param(key)
@@ -90,6 +111,15 @@ module Api
         (BigDecimal(value.to_s) * 100).to_i
       rescue ArgumentError
         nil
+      end
+
+      def pay_range_min_cents
+        return nil if params[:payRange].blank? || params[:payRange] == "Any"
+
+        min = params[:payRange].to_s[/\d+/]
+        return nil unless min
+
+        min.to_i * 100
       end
     end
   end

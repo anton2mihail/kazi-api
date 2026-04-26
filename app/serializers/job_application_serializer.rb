@@ -20,15 +20,21 @@ class JobApplicationSerializer
     profile = worker.worker_profile
     {
       workerId: worker.id,
-      workerName: [profile&.first_name, profile&.last_name].compact_blank.join(" "),
-      trades: [profile&.primary_trade, *(profile&.secondary_trades || [])].compact_blank,
+      workerName: [ profile&.first_name, profile&.last_name ].compact_blank.join(" "),
+      trade: profile&.primary_trade,
+      trades: [ profile&.primary_trade, *(profile&.secondary_trades || []) ].compact_blank,
       experience: profile&.years_experience,
       yearsExperience: profile&.years_experience,
-      location: [profile&.city, profile&.province].compact_blank.join(", "),
+      location: [ profile&.city, profile&.province ].compact_blank.join(", "),
       bio: profile&.bio,
-      certifications: profile&.certifications || [],
+      certifications: [ *(profile&.certifications || []), *(profile&.custom_certifications || []) ],
+      verifiedCerts: profile&.verified_certifications || [],
       skills: profile&.skills || [],
-      hourlyRate: profile&.hourly_rate_min_cents&./(100)
+      hourlyRate: profile&.hourly_rate_min_cents&./(100),
+      hasTransportation: profile&.has_transportation || false,
+      hasOwnTools: profile&.has_own_tools || false,
+      drivingLicenses: profile&.driving_licenses || [],
+      emailVerified: worker.email_verified
     }
   end
 end

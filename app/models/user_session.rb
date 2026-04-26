@@ -19,7 +19,7 @@ class UserSession < ApplicationRecord
       last_used_at: Time.current
     )
 
-    [token, session]
+    [ token, session ]
   end
 
   def self.digest(token)
