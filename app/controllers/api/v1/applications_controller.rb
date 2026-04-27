@@ -64,7 +64,16 @@ module Api
         return render_error("forbidden", "You can only view applicants for your jobs.", status: :forbidden) unless job.employer_id == current_user.id
 
         applications = job.job_applications.includes(worker: :worker_profile).order(created_at: :desc)
-        render_success(applications.map { |application| JobApplicationSerializer.render(application, include_worker: true) })
+        revealed_worker_ids = revealed_worker_ids_for(applications)
+        render_success(
+          applications.map do |application|
+            JobApplicationSerializer.render(
+              application,
+              include_worker: true,
+              contact_revealed: revealed_worker_ids.include?(application.worker_id)
+            )
+          end
+        )
       end
 
       private
@@ -76,11 +85,27 @@ module Api
 
       def employer_index
         applications = JobApplication.joins(:job).where(jobs: { employer_id: current_user.id }).includes(:job, worker: :worker_profile)
-        render_success(applications.map { |application| JobApplicationSerializer.render(application, include_worker: true) })
+        revealed_worker_ids = revealed_worker_ids_for(applications)
+        render_success(
+          applications.map do |application|
+            JobApplicationSerializer.render(
+              application,
+              include_worker: true,
+              contact_revealed: revealed_worker_ids.include?(application.worker_id)
+            )
+          end
+        )
       end
 
       def employer_statuses
         %w[reviewing shortlisted interview_requested hired rejected]
+      end
+
+      def revealed_worker_ids_for(applications)
+        worker_ids = applications.map(&:worker_id).uniq
+        return [] if worker_ids.empty?
+
+        current_user.employer_interview_requests.accepted.where(worker_id: worker_ids).distinct.pluck(:worker_id)
       end
     end
   end

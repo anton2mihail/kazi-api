@@ -11,6 +11,7 @@ module Api
         jobs = jobs.where(trade: params[:trade]) if params[:trade].present? && params[:trade] != "All Trades"
         jobs = jobs.where(location: params[:location]) if params[:location].present? && params[:location] != "All Locations"
         jobs = jobs.where("pay_max_cents IS NULL OR pay_max_cents >= ?", pay_range_min_cents) if pay_range_min_cents
+        jobs = filter_followed_companies(jobs)
         if params[:q].present?
           query = "%#{ActiveRecord::Base.sanitize_sql_like(params[:q])}%"
           jobs = jobs.left_joins(employer: :employer_profile).where(
@@ -120,6 +121,14 @@ module Api
         return nil unless min
 
         min.to_i * 100
+      end
+
+      def filter_followed_companies(scope)
+        return scope unless current_user.worker?
+        return scope unless ActiveModel::Type::Boolean.new.cast(params[:followingOnly])
+
+        followed_company_ids = current_user.worker_profile&.followed_company_ids || []
+        scope.where(employer_id: followed_company_ids)
       end
     end
   end

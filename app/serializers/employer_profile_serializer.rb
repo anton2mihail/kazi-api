@@ -23,6 +23,7 @@ class EmployerProfileSerializer
       verificationStatus: profile.verification_status,
       verificationStep: profile.verification_step || (profile.verified? ? 4 : 3),
       verificationSubmittedAt: profile.verification_submitted_at,
+      submittedAt: profile.verification_submitted_at,
       verifiedAt: profile.verified_at,
       rejectedAt: profile.rejected_at,
       suspendedAt: profile.suspended_at,

@@ -1,5 +1,5 @@
 class JobApplicationSerializer
-  def self.render(application, include_job: false, include_worker: false)
+  def self.render(application, include_job: false, include_worker: false, contact_revealed: false)
     payload = {
       id: application.id,
       applicationId: application.id,
@@ -12,12 +12,15 @@ class JobApplicationSerializer
     }
 
     payload[:job] = JobSerializer.render(application.job, include_description: false) if include_job
-    payload.merge!(worker_payload(application.worker)) if include_worker
+    payload.merge!(worker_payload(application.worker, contact_revealed: contact_revealed)) if include_worker
     payload
   end
 
-  def self.worker_payload(worker)
+  def self.worker_payload(worker, contact_revealed: false)
     profile = worker.worker_profile
+    worker_email = contact_revealed && worker.email_verified ? worker.email : nil
+    worker_phone = contact_revealed ? worker.phone : nil
+
     {
       workerId: worker.id,
       workerName: [ profile&.first_name, profile&.last_name ].compact_blank.join(" "),
@@ -34,7 +37,11 @@ class JobApplicationSerializer
       hasTransportation: profile&.has_transportation || false,
       hasOwnTools: profile&.has_own_tools || false,
       drivingLicenses: profile&.driving_licenses || [],
-      emailVerified: worker.email_verified
+      emailVerified: worker.email_verified,
+      workerPhone: worker_phone,
+      phone: worker_phone,
+      workerEmail: worker_email,
+      email: worker_email
     }
   end
 end
