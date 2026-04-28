@@ -54,3 +54,11 @@ group :development, :test do
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
 end
+
+group :development do
+  gem "capistrano", require: false
+  gem "capistrano-bundler", require: false
+  gem "capistrano-rails", require: false
+  gem "capistrano-rbenv", require: false
+  gem "sshkit", require: false
+end

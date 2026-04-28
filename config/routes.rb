@@ -71,6 +71,12 @@ Rails.application.routes.draw do
 
       resource :notification_preferences, only: [ :show, :update ]
 
+      resources :devices, only: [ :create ] do
+        collection do
+          delete ":token", to: "devices#destroy", constraints: { token: %r{[^/]+} }
+        end
+      end
+
       namespace :admin do
         resources :employer_verifications, only: :index do
           member do
@@ -88,7 +94,20 @@ Rails.application.routes.draw do
         end
 
         resources :invite_codes, only: [ :index, :create, :update ]
+        resources :push, only: [] do
+          collection do
+            post :broadcast
+            get :history
+          end
+        end
         resources :reports, only: [ :index, :update ]
+        resources :users, only: [ :index ] do
+          member do
+            patch "suspend"
+            patch "unsuspend"
+            post "test_push"
+          end
+        end
       end
     end
   end

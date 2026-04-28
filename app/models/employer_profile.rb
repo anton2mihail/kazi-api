@@ -1,4 +1,8 @@
 class EmployerProfile < ApplicationRecord
+  # NOTE: `suspended_at` on this model is DEPRECATED. Suspension now lives on
+  # `users.suspended_at` so it can apply uniformly to any role. This column is
+  # kept (and still written by `suspend!`/`unsuspend!`) for backward
+  # compatibility with existing callers and audit history.
   belongs_to :user
 
   enum :verification_status, {

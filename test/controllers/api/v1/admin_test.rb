@@ -56,6 +56,12 @@ class ApiV1AdminTest < ActionDispatch::IntegrationTest
     assert_equal false, data["verified"]
     assert_equal "suspended", data["verificationStatus"]
 
+    employer.reload
+    assert employer.employer_profile.suspended_at.present?, "deprecated employer_profile.suspended_at should still be set"
+    assert employer.suspended?, "users.suspended_at should be set"
+    assert_equal admin.id, employer.suspended_by_id
+    assert_equal "Policy review", employer.suspension_reason
+
     patch "/api/v1/admin/employers/#{employer.id}/unsuspend",
       headers: auth_headers(admin),
       as: :json
@@ -63,6 +69,12 @@ class ApiV1AdminTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal true, data["verified"]
     assert_equal "approved", data["verificationStatus"]
+
+    employer.reload
+    assert_nil employer.employer_profile.suspended_at
+    refute employer.suspended?
+    assert_nil employer.suspended_by_id
+    assert_nil employer.suspension_reason
   end
 
   test "admins can create and update invite codes" do

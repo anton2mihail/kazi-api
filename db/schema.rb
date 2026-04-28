@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_26_000009) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_27_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -25,6 +25,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_000009) do
     t.index ["action"], name: "index_audit_logs_on_action"
     t.index ["actor_id"], name: "index_audit_logs_on_actor_id"
     t.index ["subject_type", "subject_id"], name: "index_audit_logs_on_subject_type_and_subject_id"
+  end
+
+  create_table "device_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.string "app_version"
+    t.datetime "created_at", null: false
+    t.string "expo_push_token", null: false
+    t.datetime "last_seen_at"
+    t.string "locale"
+    t.string "platform", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["expo_push_token"], name: "index_device_tokens_on_expo_push_token", unique: true
+    t.index ["user_id", "active"], name: "index_device_tokens_on_user_id_and_active"
+    t.index ["user_id"], name: "index_device_tokens_on_user_id"
   end
 
   create_table "employer_profiles", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -184,6 +199,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_000009) do
     t.index ["user_id"], name: "index_otp_challenges_on_user_id"
   end
 
+  create_table "push_tickets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "device_token_id", null: false
+    t.datetime "sent_at", null: false
+    t.string "ticket_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["device_token_id", "sent_at"], name: "index_push_tickets_on_device_token_id_and_sent_at"
+    t.index ["device_token_id"], name: "index_push_tickets_on_device_token_id"
+    t.index ["ticket_id"], name: "index_push_tickets_on_ticket_id", unique: true
+  end
+
   create_table "reports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.text "admin_notes"
     t.datetime "created_at", null: false
@@ -228,10 +254,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_000009) do
     t.string "phone", null: false
     t.boolean "phone_verified", default: false, null: false
     t.string "role", null: false
+    t.datetime "suspended_at"
+    t.uuid "suspended_by_id"
+    t.text "suspension_reason"
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true, where: "(email IS NOT NULL)"
     t.index ["phone"], name: "index_users_on_phone", unique: true
     t.index ["role"], name: "index_users_on_role"
+    t.index ["suspended_at"], name: "index_users_on_suspended_at"
+    t.index ["suspended_by_id"], name: "index_users_on_suspended_by_id"
   end
 
   create_table "work_histories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -299,6 +330,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_000009) do
   end
 
   add_foreign_key "audit_logs", "users", column: "actor_id"
+  add_foreign_key "device_tokens", "users"
   add_foreign_key "employer_profiles", "users"
   add_foreign_key "interview_requests", "jobs"
   add_foreign_key "interview_requests", "users", column: "employer_id"
@@ -311,10 +343,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_000009) do
   add_foreign_key "notifications", "jobs"
   add_foreign_key "notifications", "users"
   add_foreign_key "otp_challenges", "users"
+  add_foreign_key "push_tickets", "device_tokens"
   add_foreign_key "reports", "jobs"
   add_foreign_key "reports", "users", column: "reporter_id"
   add_foreign_key "reports", "users", column: "reviewed_by_id"
   add_foreign_key "user_sessions", "users"
+  add_foreign_key "users", "users", column: "suspended_by_id"
   add_foreign_key "work_histories", "jobs"
   add_foreign_key "work_histories", "users", column: "employer_id"
   add_foreign_key "work_histories", "users", column: "worker_id"

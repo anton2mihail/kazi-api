@@ -18,17 +18,15 @@ Rails.application.configure do
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
 
-  # Store uploaded files on the local file system (see config/storage.yml for options).
-  config.active_storage.service = :local
+  # Store uploaded files using the configured production service.
+  config.active_storage.service = ENV.fetch("ACTIVE_STORAGE_SERVICE", "local").to_sym
 
-  # Assume all access to the app is happening through a SSL-terminating reverse proxy.
-  # config.assume_ssl = true
+  # Production runs behind Nginx on the VPS, so trust the proxy's HTTPS headers by default.
+  config.assume_ssl = ENV.fetch("ASSUME_SSL", "true") == "true"
 
-  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  # config.force_ssl = true
-
-  # Skip http-to-https redirect for the default health check endpoint.
-  # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
+  # Force all access to the app over SSL, while keeping the default health checks reachable.
+  config.force_ssl = ENV.fetch("FORCE_SSL", "true") == "true"
+  config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" || request.path == "/api/v1/health" } } }
 
   # Log to STDOUT with the current request id as a default log tag.
   config.log_tags = [ :request_id ]
@@ -47,14 +45,16 @@ Rails.application.configure do
   # config.cache_store = :mem_cache_store
 
   # Replace the default in-process and non-durable queuing backend for Active Job.
-  # config.active_job.queue_adapter = :resque
+  config.active_job.queue_adapter = :sidekiq
 
   # Ignore bad email addresses and do not raise email delivery errors.
   # Set this to true and configure the email server for immediate delivery to raise delivery errors.
   # config.action_mailer.raise_delivery_errors = false
 
   # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "example.com" }
+  app_host = ENV["APP_HOST"].presence || ENV["API_HOST"].presence || "example.com"
+  app_protocol = ENV.fetch("APP_PROTOCOL", "https")
+  config.action_mailer.default_url_options = { host: app_host, protocol: app_protocol }
 
   # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
   # config.action_mailer.smtp_settings = {
@@ -75,12 +75,13 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
-  # Enable DNS rebinding protection and other `Host` header attacks.
-  # config.hosts = [
-  #   "example.com",     # Allow requests from example.com
-  #   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-  # ]
-  #
-  # Skip DNS rebinding protection for the default health check endpoint.
-  # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  # Enable DNS rebinding protection and other `Host` header attacks when explicit hosts are configured.
+  allowed_hosts = ENV.fetch("RAILS_ALLOWED_HOSTS", "")
+                     .split(",")
+                     .map(&:strip)
+                     .reject(&:blank?)
+  unless allowed_hosts.empty?
+    config.hosts = allowed_hosts
+    config.host_authorization = { exclude: ->(request) { request.path == "/up" || request.path == "/api/v1/health" } }
+  end
 end

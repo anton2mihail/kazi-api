@@ -15,6 +15,11 @@ class ApplicationController < ActionController::API
     session = UserSession.active.find_by(token_digest: UserSession.digest(token))
     return render_error("invalid_token", "Invalid or expired session.", status: :unauthorized) unless session
 
+    if session.user.suspended?
+      session.revoke!
+      return render_error("account_suspended", "This account is suspended.", status: :forbidden)
+    end
+
     session.update!(last_used_at: Time.current)
     @current_session = session
     @current_user = session.user

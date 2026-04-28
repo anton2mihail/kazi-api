@@ -59,6 +59,9 @@ module Api
             role: challenge.requested_role.presence_in(VALID_ROLES) || "worker",
             phone_verified: true
           )
+
+          return render_error("account_suspended", "This account is suspended.", status: :forbidden) if user.suspended?
+
           user.update!(phone_verified: true)
           challenge.update!(user: user, consumed_at: Time.current)
 

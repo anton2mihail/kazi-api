@@ -48,4 +48,26 @@ class ApiV1AuthOtpTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
     assert_equal "incorrect_code", error["code"]
   end
+
+  test "OTP verify rejects suspended accounts" do
+    worker = create_worker(phone: "4165550196")
+    admin = create_admin
+    worker.suspend!(reason: "Policy review", by: admin)
+
+    post "/api/v1/auth/otp/start",
+      params: { phone: worker.phone, purpose: "login" },
+      as: :json
+
+    assert_response :created
+    challenge_id = data["challenge_id"]
+    code = data["development_code"]
+
+    post "/api/v1/auth/otp/verify",
+      params: { challenge_id: challenge_id, code: code },
+      as: :json
+
+    assert_response :forbidden
+    assert_equal "account_suspended", error["code"]
+    assert_equal 0, worker.user_sessions.active.count
+  end
 end

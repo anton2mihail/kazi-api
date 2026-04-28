@@ -17,10 +17,32 @@ class User < ApplicationRecord
   has_many :employer_work_histories, class_name: "WorkHistory", foreign_key: :employer_id, dependent: :destroy
   has_many :notifications, dependent: :destroy
   has_one :notification_preference, dependent: :destroy
+  has_many :device_tokens, dependent: :destroy
+
+  belongs_to :suspended_by, class_name: "User", optional: true
+
+  scope :suspended, -> { where.not(suspended_at: nil) }
+  scope :not_suspended, -> { where(suspended_at: nil) }
 
   normalizes :phone, with: ->(phone) { phone.to_s.gsub(/\D/, "") }
   normalizes :email, with: ->(email) { email.to_s.strip.downcase.presence }
 
   validates :role, presence: true
   validates :phone, presence: true, uniqueness: true
+
+  def suspended?
+    suspended_at.present?
+  end
+
+  def suspend!(reason: nil, by: nil, at: Time.current)
+    update!(
+      suspended_at: at,
+      suspension_reason: reason.presence,
+      suspended_by: by
+    )
+  end
+
+  def unsuspend!
+    update!(suspended_at: nil, suspension_reason: nil, suspended_by: nil)
+  end
 end
